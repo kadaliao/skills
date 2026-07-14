@@ -1,6 +1,6 @@
 ---
 name: model-router
-description: Routes substantive Codex CLI and Codex App tasks to personal custom agents with pinned OpenAI models and reasoning efforts, keeps routing sticky for the task, escalates when complexity or risk rises, and records privacy-safe local metadata. Use automatically before analytical or execution work, and explicitly when the user invokes $model-router or asks to choose, switch, or override a model, reasoning effort, or agent tier. Bypass simple factual replies, explicit dedicated-skill requests, single-step tool operations, and image or artifact generation handled by another skill.
+description: Routes substantive Codex CLI and Codex App tasks to personal custom agents with pinned OpenAI models and reasoning efforts, keeps routing sticky for the task, escalates when complexity or risk rises, and records and reviews privacy-safe local routing metadata. Use automatically before analytical or execution work, and explicitly when the user invokes $model-router, asks to choose, switch, or override a model, reasoning effort, or agent tier, or asks for routing history, usage statistics, or a model-routing retrospective. Bypass simple factual replies, explicit dedicated-skill requests, single-step tool operations, and image or artifact generation handled by another skill.
 ---
 
 # Model Router
@@ -23,6 +23,11 @@ Do not spawn a custom agent for a simple factual answer, an explicit request
 for another dedicated skill, a single-step tool or status operation, or image
 and artifact work already owned by another skill. Handle those in the root
 session and let the dedicated skill run normally.
+
+When the user explicitly invokes `$model-router`, record a `passthrough`
+selection and completion even when this bypass applies. Use the matching reason
+such as `simple`, `explicit-skill`, or `single-step`. This keeps explicit router
+usage visible without adding logging overhead to every implicit trivial reply.
 
 ## Route The Task
 
@@ -107,3 +112,28 @@ python3 "$ROUTER_HOME/skills/model-router/scripts/route_log.py" complete \
 
 If `CODEX_HOME` is unset, use `$HOME/.codex`. Logging failure must not block the
 task; report it briefly and continue.
+
+## Review Routing History
+
+When the user asks how the router has been used, run the local report directly
+in the root session. Do not delegate this single-step status operation.
+
+```bash
+ROUTER_HOME="${CODEX_HOME:-$HOME/.codex}"
+
+python3 "$ROUTER_HOME/skills/model-router/scripts/route_log.py" report
+python3 "$ROUTER_HOME/skills/model-router/scripts/route_log.py" report --days 7
+python3 "$ROUTER_HOME/skills/model-router/scripts/route_log.py" summary --since 2026-07-01
+```
+
+Use `report` for a readable retrospective and `summary` for structured JSON.
+Both support `--days`, `--since`, `--until`, `--task-type`, and `--tier`;
+`report` also accepts `--limit` for recent rows. Explain incomplete routes,
+failed or partial verification, escalation patterns, dominant selection reasons,
+and unusual duration when they are present.
+
+Treat the reported model as the configured target inferred from the tier. The
+report covers only events successfully written by this skill; the metadata does
+not prove the provider-side model actually called and does not contain prompts,
+code, paths, repository names, user identifiers, tokens, cost, or secrets. Do
+not claim otherwise.

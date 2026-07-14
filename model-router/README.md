@@ -32,7 +32,7 @@ Escalation (`fast → balanced → deep`) is automatic when scope expands, root 
 - [references/routing-policy.md](references/routing-policy.md) — tier matrix and decision signals for non-obvious calls.
 - [references/eval-cases.json](references/eval-cases.json) — routing eval fixtures.
 - [agents/openai.yaml](agents/openai.yaml) — Codex agent interface metadata.
-- [scripts/route_log.py](scripts/route_log.py) — privacy-safe local metadata logging (fixed enum fields only; no prompts, code, paths, or identifiers). Uses `$CODEX_HOME` (default `$HOME/.codex`).
+- [scripts/route_log.py](scripts/route_log.py) — privacy-safe local metadata logging plus history review (`report` / `summary`, filterable by `--days`, `--since`, `--until`, `--task-type`, `--tier`). Fixed enum fields only; no prompts, code, paths, or identifiers. Uses `$CODEX_HOME` (default `$HOME/.codex`).
 - [scripts/test_model_router.py](scripts/test_model_router.py) — tests for the logger.
 
 ## Install
