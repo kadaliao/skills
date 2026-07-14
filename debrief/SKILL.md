@@ -1,39 +1,43 @@
 ---
 name: debrief
-description: 实现类工作完成后的学习闭环：讲解关键决策 + 聊天内逐题 quiz，校验用户真的理解了 AI 怎么干的。仅当用户明确说 /debrief、「复盘讲解」、「考考我这次改动」，或对收尾提醒点头时触发；其他情况不要自动运行。
+description: Post-implementation learning loop that explains the key decisions behind completed work, then verifies the user's understanding with an interactive quiz. Trigger only when the user explicitly says /debrief, asks for a debrief, asks to be quizzed on a change, or accepts a wrap-up reminder; never auto-run otherwise. Always responds in the user's language.
+license: MIT
+metadata:
+  author: kadaliao
+  version: "1.0"
 ---
 
-<!-- 判废条款：连续两次 quiz 没答完（用户跳过或中途弃答），删除本 skill。 -->
+# Debrief: post-implementation learning loop
 
-# Debrief：事后学习闭环
+Purpose: after the AI finishes the work, the user learns how it was done. The deliverable is verified understanding, not a summary.
 
-目的：AI 干完活，用户学到它是怎么干的。产出不是总结，是校验过的理解。
+Always respond in the language the user is using.
 
-## 1. 讲解（一条消息，四块，按序）
+## 1. Explain (one message, four sections, in order)
 
-不复述 diff。只讲 diff 里看不出来的东西：
+Do not restate the diff. Cover only what the diff cannot show:
 
-1. **为什么走这条路**——被否掉的备选方案和否掉的理由。
-2. **依赖了哪些既有代码路径**——本次改动的正确性建立在哪些已有代码之上（给 文件:行号）。这是读 diff 最大的盲区。
-3. **与计划的偏差**——哪里没按原计划或常规做法走，为什么。
-4. **替用户做了哪些决定**——用户没明说、由 AI 拍板的选择，逐条列。
+1. **Why this path** — the rejected alternatives and why they lost.
+2. **Existing code paths this change depends on** — which pre-existing code the correctness of this change rests on (give file:line). This is the biggest blind spot when reading diffs.
+3. **Deviations from the plan** — where the work departed from the original plan or common practice, and why.
+4. **Decisions made on the user's behalf** — choices the user never specified that the AI settled, listed one by one.
 
-每块 ≤5 行；没有内容的块写「无」，不硬凑。
+At most 5 lines per section; write "none" instead of padding.
 
-## 2. Quiz（聊天内逐题）
+## 2. Quiz (in-chat, one question at a time)
 
-- 3~5 题，全部出自上面四块的决策点。禁考语法、命名、以及能在讲解里逐字找到答案的复述题。
-- 好题的形状：「如果 X 条件变了，这个方案哪里先坏？」「第 N 处为什么不用更直接的 Y？」
-- 一题一题问（有 AskUserQuestion 用它，选项里放一个貌似合理的错误项；没有就纯文本问答）。不答就等着，不代答，不一次抛全部。
-- 答错：换角度重讲该点，再出一题变体，过了才进下一题。
+- 3–5 questions, all drawn from decision points in the four sections above. No syntax or naming trivia, and no recall questions answerable verbatim from the explanation.
+- Good question shapes: "If condition X changed, where does this approach break first?" "Why not the more direct Y at point N?"
+- Ask one question at a time. If the host has an interactive question tool (e.g. Claude Code's AskUserQuestion), use it and include one plausible-but-wrong option; otherwise ask in plain text. Wait for the answer — never answer for the user, never dump all questions at once.
+- On a wrong answer: re-explain that point from a different angle, ask a variant question, and move on only after it is passed.
 
-## 3. 收尾
+## 3. Wrap-up
 
-- 列出答错过的题对应的知识点。
-- 有错题时问一句：「这几条要不要 record-lesson？」点头才调 record-lesson，不自动写。
-- 全对且无偏差：一句话收尾，不展开。
+- List the knowledge points behind any wrong answers.
+- If there were wrong answers and the host has a long-term memory mechanism (a record-lesson-style skill, built-in agent memory), ask once whether to save them. Write only on an explicit yes, never automatically. Without a memory mechanism, hand the points to the user as a short list to record.
+- All correct and no deviations: wrap up in one sentence, no elaboration.
 
-## 边界
+## Boundaries
 
-- 小改动（纯文档、几行修补）主动劝退：「这次不值得 debrief」。
-- 讲解和题目必须基于本次会话真实做过的事；上下文不足时先读相关 diff/文件再出题，不凭空编。
+- For small changes (docs-only, few-line patches), push back: "not worth a debrief."
+- The explanation and questions must come from what actually happened in this session; if context is thin, read the relevant diff/files first — never invent.
