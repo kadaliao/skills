@@ -1,0 +1,68 @@
+[
+  {
+    "id": "simple-calculation",
+    "request": "How long can this battery power a 1 kW appliance?",
+    "expected_tier": "passthrough"
+  },
+  {
+    "id": "explicit-skill",
+    "request": "Use the PDF skill to rotate this document.",
+    "expected_tier": "passthrough"
+  },
+  {
+    "id": "small-doc-fix",
+    "request": "Fix one typo in the README and verify the link still works.",
+    "expected_tier": "fast"
+  },
+  {
+    "id": "bounded-cli-option",
+    "request": "Add one documented flag to this existing CLI and test it.",
+    "expected_tier": "fast"
+  },
+  {
+    "id": "official-api-research",
+    "request": "Research the currently supported API options from official docs and recommend one.",
+    "expected_tier": "balanced"
+  },
+  {
+    "id": "dependency-path-diagnosis",
+    "request": "Diagnose why this plugin broke after a package-manager upgrade and fix it if needed.",
+    "expected_tier": "balanced"
+  },
+  {
+    "id": "bounded-pagination-bug",
+    "request": "Find why this reader always stops at 25 records, fix it, and add a focused test.",
+    "expected_tier": "balanced"
+  },
+  {
+    "id": "cross-system-feature",
+    "request": "Implement this feature across the mobile client and backend, then run integration checks.",
+    "expected_tier": "deep"
+  },
+  {
+    "id": "broad-review-and-fix",
+    "request": "Review the client and server comprehensively, fix real bugs, and verify the workflows.",
+    "expected_tier": "deep"
+  },
+  {
+    "id": "ambiguous-concurrency",
+    "request": "Trace and fix an intermittent duplicate background job across multiple workers.",
+    "expected_tier": "deep"
+  },
+  {
+    "id": "auth-boundary-change",
+    "request": "Change authorization rules for production accounts where incorrect access would expose private data.",
+    "expected_tier": "critical"
+  },
+  {
+    "id": "destructive-migration",
+    "request": "Plan and execute a production database migration that deletes legacy rows and has no tested rollback.",
+    "expected_tier": "critical"
+  },
+  {
+    "id": "routine-push",
+    "request": "Update this documentation, verify it, commit, and push the change.",
+    "expected_tier": "balanced"
+  }
+]
+

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Model Router"
+  short_description: "Route Codex tasks to the right model tier"
+  default_prompt: "Use $model-router to choose the appropriate Codex model tier for this task."
