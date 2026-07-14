@@ -12,7 +12,15 @@ The collection is deliberately small. Anything a one-line prompt can do stays a 
 
 ## Install
 
-Copy a skill directory into your agent's skills location — e.g. `~/.claude/skills/` (global) or `.claude/skills/` (per project) for Claude Code; see [agentskills.io](https://agentskills.io) for other clients' conventions.
+A skill is just a directory — install it by dropping that directory into your agent's skills location. For Claude Code that's `~/.claude/skills/` (global) or `.claude/skills/` (per project); see [agentskills.io](https://agentskills.io) for other clients' conventions.
+
+One line to install a single skill, no git history, via [degit](https://github.com/Rich-Harris/degit) (needs Node.js):
+
+```bash
+npx degit kadaliao/skills/debrief ~/.claude/skills/debrief
+```
+
+Swap `debrief` for any skill name and the destination for your client's skills directory. Or clone the whole repo and copy the directories you want.
 
 ## License
 
