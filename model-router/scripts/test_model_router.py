@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate model-router fixtures and exercise privacy-safe logging."""
+"""Exercise model-router policy, lifecycle logging, and reporting."""
 
 from __future__ import annotations
 
@@ -16,43 +16,54 @@ EVAL_CASES = SKILL_DIR / "references" / "eval-cases.json"
 VALID_TIERS = {"passthrough", "fast", "balanced", "deep", "critical"}
 
 
-def run(*args: str) -> subprocess.CompletedProcess[str]:
+def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(LOG_SCRIPT), *args],
-        check=True,
+        check=check,
         capture_output=True,
         text=True,
     )
 
 
-def validate_eval_cases() -> None:
+def validate_and_run_eval_cases() -> None:
     cases = json.loads(EVAL_CASES.read_text(encoding="utf-8"))
-    assert len(cases) >= 10
+    assert len(cases) >= 15
     ids = [case["id"] for case in cases]
     assert len(ids) == len(set(ids))
     for case in cases:
-        assert set(case) == {"id", "request", "expected_tier"}
+        assert set(case) == {"id", "request", "reasons", "expected_tier"}
         assert case["expected_tier"] in VALID_TIERS
         assert case["request"].strip()
-
-
-def test_logging() -> None:
-    with tempfile.TemporaryDirectory() as directory:
-        log_file = Path(directory) / "routes.jsonl"
-        selected = run(
-            "--log-file",
-            str(log_file),
-            "select",
+        assert case["reasons"]
+        command = [
+            "decide",
+            "--dry-run",
             "--task-type",
             "implementation",
-            "--tier",
-            "balanced",
-            "--reason",
-            "multi-module",
-            "--confidence",
-            "0.82",
+        ]
+        for reason in case["reasons"]:
+            command.extend(("--reason", reason))
+        decision = json.loads(run(*command).stdout)
+        assert decision["tier"] == case["expected_tier"], case["id"]
+        assert "route_id" not in decision
+
+
+def test_logging_and_lifecycle() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        log_file = Path(directory) / "routes.jsonl"
+        decision = json.loads(
+            run(
+                "--log-file",
+                str(log_file),
+                "decide",
+                "--task-type",
+                "implementation",
+                "--reason",
+                "multi-module",
+            ).stdout
         )
-        route_id = selected.stdout.strip()
+        route_id = decision["route_id"]
+        assert decision["tier"] == "balanced"
         run(
             "--log-file",
             str(log_file),
@@ -67,131 +78,164 @@ def test_logging() -> None:
             "deep",
             "--duration-seconds",
             "42",
+            "--active-duration-seconds",
+            "30",
+            "--tier-fit",
+            "under",
             "--escalation-reason",
             "verification-failed",
         )
-        summary = json.loads(
-            run("--log-file", str(log_file), "summary").stdout
+        summary = json.loads(run("--log-file", str(log_file), "summary").stdout)
+        assert summary["completed"] == 1
+        assert summary["stale"] == 0
+        assert summary["duration_seconds"]["median"] == 42
+        assert summary["duration_seconds"]["p90"] == 42
+        assert summary["active_duration_seconds"]["median"] == 30
+        assert summary["tier_fits"] == {"under": 1}
+        assert summary["duration_sources"] == {"reported": 1}
+        assert summary["escalated"] == 1
+        assert summary["tier_metrics"]["balanced"]["passed"] == 1
+        assert summary["reason_metrics"]["multi-module"]["passed"] == 1
+
+        duplicate = run(
+            "--log-file",
+            str(log_file),
+            "complete",
+            "--route-id",
+            route_id,
+            "--outcome",
+            "succeeded",
+            "--verification",
+            "passed",
+            check=False,
         )
-        assert summary == {
-            "completed": 1,
-            "completion_rate": 1.0,
-            "confidence": {"average": 0.82, "maximum": 0.82, "minimum": 0.82},
-            "configured_targets": {"gpt-5.6-terra/medium": 1},
-            "duration_seconds": {
-                "average": 42,
-                "maximum": 42,
-                "median": 42,
-                "minimum": 42,
-                "total": 42,
-            },
-            "escalated": 1,
-            "escalation_rate": 1.0,
-            "escalation_reasons": {"verification-failed": 1},
-            "final_tiers": {"deep": 1},
-            "incomplete": 0,
-            "outcomes": {"succeeded": 1},
-            "routes": 1,
-            "selection_reasons": {"multi-module": 1},
-            "selected_tiers": {"balanced": 1},
-            "task_types": {"implementation": 1},
-            "user_overrides": 0,
-            "verifications": {"passed": 1},
-        }
+        assert duplicate.returncode == 1
+        assert "already completed" in duplicate.stderr
 
         run(
             "--log-file",
             str(log_file),
-            "select",
-            "--task-type",
-            "question",
-            "--tier",
-            "fast",
-            "--reason",
-            "low-risk",
-            "--confidence",
-            "0.91",
-            "--user-override",
+            "complete",
+            "--route-id",
+            route_id,
+            "--outcome",
+            "succeeded",
+            "--verification",
+            "passed",
+            "--tier-fit",
+            "appropriate",
+            "--revise",
         )
-        filtered = json.loads(
+        revised = json.loads(run("--log-file", str(log_file), "summary").stdout)
+        assert revised["completion_revisions"] == 1
+        assert revised["duration_sources"] == {"wall-clock": 1}
+
+        open_decision = json.loads(
             run(
                 "--log-file",
                 str(log_file),
-                "summary",
-                "--tier",
-                "fast",
+                "decide",
+                "--task-type",
+                "question",
+                "--reason",
+                "bounded",
+                "--reason",
+                "low-risk",
+                "--reason",
+                "deterministic-verification",
             ).stdout
         )
-        assert filtered["routes"] == 1
-        assert filtered["completed"] == 0
-        assert filtered["incomplete"] == 1
-        assert filtered["configured_targets"] == {"gpt-5.6-luna/low": 1}
-        assert filtered["user_overrides"] == 1
-
-        report = run(
-            "--log-file",
-            str(log_file),
-            "report",
-            "--limit",
-            "2",
-        ).stdout
-        assert "# Model Router Report" in report
-        assert "gpt-5.6-terra/medium" in report
-        assert "balanced -> deep" in report
-        assert "completion logging needs attention" in report
-        assert "does not audit provider-side model calls, tokens, or cost" in report
-        assert "only successfully written router events" in report
-
-        empty = json.loads(
-            run(
-                "--log-file",
-                str(log_file),
-                "summary",
-                "--since",
-                "2999-01-01",
-            ).stdout
-        )
-        assert empty["routes"] == 0
-        assert empty["confidence"] == {}
-        assert empty["duration_seconds"] == {}
-
-        through_today = json.loads(
-            run(
-                "--log-file",
-                str(log_file),
-                "summary",
-                "--until",
-                "2999-01-01",
-            ).stdout
-        )
-        assert through_today["routes"] == 2
-
+        assert open_decision["tier"] == "fast"
         lines = [json.loads(line) for line in log_file.read_text().splitlines()]
-        allowed = {
-            "schema_version",
-            "event",
-            "timestamp",
-            "route_id",
-            "task_type",
-            "selected_tier",
-            "reasons",
-            "confidence",
-            "user_override",
-            "outcome",
-            "verification",
-            "final_tier",
-            "duration_seconds",
-            "escalation_reasons",
-        }
-        assert all(set(line) <= allowed for line in lines)
+        for line in lines:
+            if line["route_id"] == open_decision["route_id"]:
+                line["timestamp"] = "2000-01-01T00:00:00+00:00"
+        log_file.write_text(
+            "".join(json.dumps(line, separators=(",", ":")) + "\n" for line in lines),
+            encoding="utf-8",
+        )
+
+        stale = json.loads(
+            run("--log-file", str(log_file), "summary", "--stale-hours", "24").stdout
+        )
+        assert stale["incomplete"] == 1
+        assert stale["active"] == 0
+        assert stale["stale"] == 1
+
+        preview = json.loads(
+            run("--log-file", str(log_file), "reconcile", "--stale-hours", "24").stdout
+        )
+        assert preview["applied"] == 0
+        assert len(preview["candidates"]) == 1
+        applied = json.loads(
+            run(
+                "--log-file",
+                str(log_file),
+                "reconcile",
+                "--stale-hours",
+                "24",
+                "--apply",
+            ).stdout
+        )
+        assert applied["applied"] == 1
+        closed = json.loads(run("--log-file", str(log_file), "summary").stdout)
+        assert closed["stale"] == 0
+        assert closed["outcomes"]["abandoned"] == 1
+
+        report = run("--log-file", str(log_file), "report", "--limit", "2").stdout
+        assert "# Model Router Report" in report
+        assert "## Tier Quality" in report
+        assert "## Selection Reasons" in report
+        assert "Wall duration: p50" in report
+        assert "completion revision(s)" in report
+        assert "does not audit provider-side model calls, tokens, or cost" in report
+
         serialized = log_file.read_text(encoding="utf-8")
         assert "gpt-5.6" not in serialized
         assert "tokens" not in serialized
 
 
+def test_legacy_log_compatibility() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        log_file = Path(directory) / "routes.jsonl"
+        route_id = "0761d2cf-c367-4109-87c5-279b95ee8280"
+        events = [
+            {
+                "schema_version": 1,
+                "event": "selected",
+                "timestamp": "2026-07-14T07:16:13+00:00",
+                "route_id": route_id,
+                "task_type": "implementation",
+                "selected_tier": "balanced",
+                "reasons": ["multi-module"],
+                "confidence": 0.86,
+                "user_override": False,
+            },
+            {
+                "schema_version": 1,
+                "event": "completed",
+                "timestamp": "2026-07-14T07:31:14+00:00",
+                "route_id": route_id,
+                "outcome": "succeeded",
+                "verification": "partial",
+                "final_tier": "balanced",
+                "duration_seconds": 420,
+                "escalation_reasons": [],
+            },
+        ]
+        log_file.write_text(
+            "".join(json.dumps(event) + "\n" for event in events), encoding="utf-8"
+        )
+        summary = json.loads(run("--log-file", str(log_file), "summary").stdout)
+        assert summary["completed"] == 1
+        assert summary["duration_sources"] == {"legacy-reported": 1}
+        assert summary["tier_fits"] == {"unknown": 1}
+
+
 def main() -> int:
-    validate_eval_cases()
-    test_logging()
+    validate_and_run_eval_cases()
+    test_logging_and_lifecycle()
+    test_legacy_log_compatibility()
     print("model-router tests passed")
     return 0
 

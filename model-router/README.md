@@ -9,9 +9,9 @@ Route a substantive task to one model tier once, keep that agent for the task's 
 | Tier | Agent | Model / effort | For |
 |---|---|---|---|
 | passthrough | — (root session) | — | Simple facts, one-step ops, work owned by another skill |
-| fast | `router_fast` | `gpt-5.6-luna/low` | Small but substantive, reversible, cheap to verify |
-| balanced | `router_balanced` | `gpt-5.6-terra/medium` | Default: routine research, diagnosis, review, bounded implementation |
-| deep | `router_deep` | `gpt-5.6-sol/high` | Ambiguous root cause, cross-module work, long verification chains |
+| fast | `router_fast` | `gpt-5.6-luna/low` | Bounded, low-risk work with deterministic verification |
+| balanced | `router_balanced` | `gpt-5.6-terra/medium` | Default: bounded uncertainty, including known multi-module work inside one ownership boundary |
+| deep | `router_deep` | `gpt-5.6-sol/high` | Ambiguous, cross-system, concurrency, unfamiliar-API, or long-verification work |
 | critical | `router_critical` | `gpt-5.6-sol/max` | High-consequence, hard-to-reverse: migrations, auth, security, money |
 | reviewer | `router_reviewer` | `gpt-5.6-sol/high` | Independent read-only review of critical work |
 
@@ -24,16 +24,17 @@ Model tier is separate from action permission — a commit, push, or release doe
 - `$model-router critical` — explicit invocation counts as confirmation for the critical tier.
 - `do not upgrade` — hold the current tier unless continuing would be unsafe or impossible.
 
-Escalation (`fast → balanced → deep`) is automatic when scope expands, root cause stays ambiguous, verification fails twice, evidence conflicts, or the agent reports its tier is insufficient. Reaching `critical` always needs confirmation unless already explicitly selected; the skill never silently downgrades a critical task.
+The deterministic policy keeps `multi-module` work at `balanced` unless another material complexity signal applies. Escalation (`fast → balanced → deep`) is automatic when uncertainty grows, ownership boundaries are crossed, verification fails twice, evidence conflicts, or the agent reports its tier is insufficient. Reaching `critical` always needs confirmation unless already explicitly selected; the skill never silently downgrades a critical task.
 
 ## Layout
 
 - [SKILL.md](SKILL.md) — routing procedure, overrides, escalation rules.
 - [references/routing-policy.md](references/routing-policy.md) — tier matrix and decision signals for non-obvious calls.
-- [references/eval-cases.json](references/eval-cases.json) — routing eval fixtures.
+- [references/eval-cases.json](references/eval-cases.json) — executable routing-policy eval fixtures.
 - [agents/openai.yaml](agents/openai.yaml) — Codex agent interface metadata.
-- [scripts/route_log.py](scripts/route_log.py) — privacy-safe local metadata logging plus history review (`report` / `summary`, filterable by `--days`, `--since`, `--until`, `--task-type`, `--tier`). Fixed enum fields only; no prompts, code, paths, or identifiers. Uses `$CODEX_HOME` (default `$HOME/.codex`).
-- [scripts/test_model_router.py](scripts/test_model_router.py) — tests for the logger.
+- [scripts/route_policy.py](scripts/route_policy.py) — deterministic tier selection from fixed, privacy-safe task signals.
+- [scripts/route_log.py](scripts/route_log.py) — append-only routing lifecycle, automatic wall-time measurement, stale reconciliation, and history review (`decide` / `complete` / `report` / `summary` / `reconcile`). Fixed enum fields only; no prompts, code, paths, or identifiers. Uses `$CODEX_HOME` (default `$HOME/.codex`).
+- [scripts/test_model_router.py](scripts/test_model_router.py) — behavior evals, lifecycle tests, reporting tests, and legacy-log compatibility checks.
 
 ## Install
 
