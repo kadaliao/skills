@@ -4,7 +4,7 @@ description: Post-implementation learning loop that explains the key decisions b
 license: MIT
 metadata:
   author: kadaliao
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Debrief: post-implementation learning loop
@@ -12,6 +12,12 @@ metadata:
 Purpose: after the AI finishes the work, the user learns how it was done. The deliverable is verified understanding, not a summary.
 
 Always respond in the language the user is using.
+
+## Session placement
+
+- If the host supports temporary side tasks or conversations (for example, Codex's `/side`), recommend running the debrief there so the explanation and multi-turn quiz do not interrupt the main task.
+- Treat this as a recommendation, not a prerequisite. If the host lacks that capability or the user prefers the current conversation, continue here.
+- In a side conversation, use the completed task's actual context when available. If context was not carried over, inspect the relevant diff, files, and task evidence before explaining or quizzing.
 
 ## 1. Explain (one message, four sections, in order)
 

@@ -14,6 +14,10 @@ This skill implements only the post-implementation loop (explainers + quizzes). 
 
 Explicit only — `/debrief`, "quiz me on this change", or saying yes when the agent offers a debrief at wrap-up. It never auto-runs, and it pushes back on small changes ("not worth a debrief").
 
+## Where to run it
+
+Debrief is intentionally multi-turn, so it is a good fit for a temporary side task when the host supports one. In Codex, for example, start or continue the debrief with `/side`; this keeps the explanation and quiz available without interrupting the main task. This is a convenience, not a requirement: hosts without side tasks can run the same flow in the current conversation. A side task must still have the completed work's real context, or inspect the relevant diff, files, and task evidence before teaching from it.
+
 ## Suggested pairing
 
 - **Before implementation**: an interview-style grilling to surface your unknowns — a grill-me-style skill, or simply prompt the agent to interview you one question at a time, prioritizing questions whose answers would change the architecture.
