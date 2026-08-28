@@ -9,6 +9,8 @@ The collection is deliberately small. Anything a one-line prompt can do stays a 
 | Skill | What it does |
 |---|---|
 | [debrief](debrief/) | Post-implementation learning loop: the agent explains its key decisions, then quizzes you one question at a time until you actually understand what was done — see its [README](debrief/README.md) |
+| [high-signal-review](high-signal-review/) | Diff and pull-request review that reports only concrete, evidence-backed regressions and defects, not speculative or stylistic feedback |
+| [minimalist-coding](minimalist-coding/) | Focused implementation workflow that prioritizes reuse and the smallest clear, risk-proportionate change |
 | [model-router](model-router/) | **Codex only.** Routes a task to one Codex custom-agent tier (pinned OpenAI model + reasoning effort), keeps it sticky for follow-ups, and escalates on evidence — see its [README](model-router/README.md) |
 
 ## Install
