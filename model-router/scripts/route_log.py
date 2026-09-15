@@ -35,10 +35,10 @@ TASK_TYPES = (
 TIERS = ("passthrough", "fast", "balanced", "deep", "critical")
 TIER_TARGETS = {
     "passthrough": ("root-session", "current"),
-    "fast": ("gpt-5.6-luna", "low"),
-    "balanced": ("gpt-5.6-terra", "medium"),
-    "deep": ("gpt-5.6-sol", "high"),
-    "critical": ("gpt-5.6-sol", "max"),
+    "fast": ("gpt-6-astra", "low"),
+    "balanced": ("gpt-6-astra", "medium"),
+    "deep": ("gpt-6-astra", "high"),
+    "critical": ("gpt-6-astra", "max"),
 }
 REASONS = (
     "simple",
@@ -144,8 +144,9 @@ def selected_event(
     user_override: bool,
     decision_rule: str | None = None,
 ) -> dict[str, object]:
+    target_model, target_effort = TIER_TARGETS[tier]
     event: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "event": "selected",
         "timestamp": utc_now(),
         "route_id": str(uuid.uuid4()),
@@ -154,6 +155,8 @@ def selected_event(
         "reasons": sorted(set(reasons)),
         "confidence": confidence,
         "user_override": user_override,
+        "target_model": target_model,
+        "target_effort": target_effort,
     }
     if decision_rule:
         event["decision_rule"] = decision_rule
@@ -228,7 +231,7 @@ def command_complete(args: argparse.Namespace) -> int:
         duration_seconds = elapsed_seconds(route["selected"]["timestamp"], timestamp)
         duration_source = "wall-clock"
     event = {
-        "schema_version": 2,
+        "schema_version": 3,
         "event": "completed",
         "timestamp": timestamp,
         "route_id": route_id,
@@ -366,6 +369,16 @@ def aggregate_metrics(
     return metrics
 
 
+def configured_target(route: dict[str, Any]) -> str:
+    """Return the target captured at selection time, preserving legacy history."""
+    selected = route["selected"]
+    model = selected.get("target_model")
+    effort = selected.get("target_effort")
+    if isinstance(model, str) and isinstance(effort, str):
+        return f"{model}/{effort}"
+    return f"legacy-tier:{selected['selected_tier']}"
+
+
 def current_policy_supports_deep(selected: dict[str, Any]) -> bool:
     reasons = set(selected.get("reasons", []))
     if selected.get("user_override"):
@@ -410,7 +423,14 @@ def build_summary(
         > TIERS.index(route["selected"]["selected_tier"])
         for route in completed_routes
     )
-    target_models = ["/".join(TIER_TARGETS[tier]) for tier in selected_tiers]
+    target_models = [configured_target(route) for route in routes]
+    configured_targets_by_tier = {
+        tier: count_values(
+            [configured_target(route) for route in routes if route["selected"]["selected_tier"] == tier]
+        )
+        for tier in TIERS
+        if any(route["selected"]["selected_tier"] == tier for route in routes)
+    }
     tier_groups = {
         tier: [route for route in routes if route["selected"]["selected_tier"] == tier]
         for tier in TIERS
@@ -438,6 +458,7 @@ def build_summary(
         else 0,
         "selected_tiers": count_values(selected_tiers),
         "configured_targets": count_values(target_models),
+        "configured_targets_by_tier": configured_targets_by_tier,
         "final_tiers": count_values(final_tiers),
         "task_types": count_values(
             [route["selected"]["task_type"] for route in routes]
@@ -628,10 +649,14 @@ def command_report(args: argparse.Namespace) -> int:
     )
     print("| --- | --- | ---: | ---: | ---: | ---: | ---: |")
     for tier in TIERS:
-        model, effort = TIER_TARGETS[tier]
         metrics = summary["tier_metrics"].get(tier, {})
+        targets = summary["configured_targets_by_tier"].get(tier, {})
+        target_text = ", ".join(
+            f"{target} ({count})" if count > 1 else target
+            for target, count in targets.items()
+        ) or "/".join(TIER_TARGETS[tier])
         print(
-            f"| {tier} | {model}/{effort} | "
+            f"| {tier} | {target_text} | "
             f"{summary['selected_tiers'].get(tier, 0)} | "
             f"{summary['final_tiers'].get(tier, 0)} | "
             f"{metrics.get('passed', 0)} | {metrics.get('partial', 0)} | "
@@ -729,9 +754,9 @@ def command_report(args: argparse.Namespace) -> int:
         )
     print()
     print(
-        "Configured targets are inferred from the router tier mapping; this report does not "
-        "audit provider-side model calls, tokens, or cost. It covers only successfully "
-        "written router events."
+        "Configured targets are captured at selection time when available; legacy routes are "
+        "shown as legacy-tier entries. This report does not audit provider-side model calls, "
+        "tokens, or cost, and covers only successfully written router events."
     )
     return 0
 
@@ -761,7 +786,7 @@ def command_reconcile(args: argparse.Namespace) -> int:
             append_event(
                 args.log_file,
                 {
-                    "schema_version": 2,
+                    "schema_version": 3,
                     "event": "completed",
                     "timestamp": timestamp,
                     "route_id": route["route_id"],

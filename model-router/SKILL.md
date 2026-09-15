@@ -1,12 +1,14 @@
 ---
 name: model-router
-description: Routes substantive Codex CLI and Codex App tasks to personal custom agents with pinned OpenAI models and reasoning efforts, keeps routing sticky for the task, escalates when complexity or risk rises, and records and reviews privacy-safe local routing metadata. Use automatically before analytical or execution work, and explicitly when the user invokes $model-router, asks to choose, switch, or override a model, reasoning effort, or agent tier, or asks for routing history, usage statistics, or a model-routing retrospective. Bypass simple factual replies, explicit dedicated-skill requests, single-step tool operations, and image or artifact generation handled by another skill.
+description: Helps choose an isolated Codex agent and reasoning effort when routing adds value, while preserving the current root model as the default capability floor. Use when the user invokes $model-router, asks to choose or review routing, or a task clearly benefits from an isolated or independent agent. Do not auto-delegate routine work that the current session can complete directly.
 ---
 
 # Model Router
 
-Route a substantive task once, keep the selected agent for its follow-ups, and
-escalate only when evidence shows the original tier is insufficient.
+Use the current root session by default. Route only when isolation, parallel
+execution, or an independent review materially helps. When routing is used,
+keep the selected agent for follow-ups and adjust only when evidence or an
+explicit user request justifies it.
 
 ## Apply Overrides And Bypasses
 
@@ -20,9 +22,10 @@ Honor explicit overrides first:
   impossible; explain the conflict instead of silently upgrading.
 
 Do not spawn a custom agent for a simple factual answer, an explicit request
-for another dedicated skill, a single-step tool or status operation, or image
-and artifact work already owned by another skill. Handle those in the root
-session and let the dedicated skill run normally.
+for another dedicated skill, a single-step tool or status operation, routine
+work the root can finish directly, or image and artifact work already owned by
+another skill. Handle those in the root session and let the dedicated skill run
+normally.
 
 When the user explicitly invokes `$model-router`, record a `passthrough`
 selection and completion even when this bypass applies. Use the matching reason
@@ -33,32 +36,40 @@ usage visible without adding logging overhead to every implicit trivial reply.
 
 1. Read the current request and the minimum available workspace context needed
    to judge scope. Do not inspect old tasks or unrelated history for routing.
+   If routing would not add value, stay in the root session and skip the
+   remaining steps.
 2. Classify the request into the fixed, privacy-safe reasons accepted by
    `scripts/route_log.py decide`. Use
    [routing-policy.md](references/routing-policy.md) when the choice is not
    obvious. Do not treat `multi-module` alone as a `deep` signal.
 3. Run `decide --dry-run` with the task type and every applicable reason. Use
    its deterministic result rather than choosing a different tier ad hoc.
-4. Choose exactly one initial tier:
-   - `fast` -> `router_fast` -> `gpt-5.6-luna/low`
-   - `balanced` -> `router_balanced` -> `gpt-5.6-terra/medium`
-   - `deep` -> `router_deep` -> `gpt-5.6-sol/high`
-   - `critical` -> `router_critical` -> `gpt-5.6-sol/max`
-   - independent critical review -> `router_reviewer` ->
-     `gpt-5.6-sol/high`
-5. Show one concise line in the user's language before delegation:
+4. Choose exactly one initial tier. The default targets use the current GPT-6
+   capability floor and vary reasoning effort, not model quality:
+   - `fast` -> `router_fast` -> `gpt-6-astra/low`
+   - `balanced` -> `router_balanced` -> `gpt-6-astra/medium`
+   - `deep` -> `router_deep` -> `gpt-6-astra/high`
+   - `critical` -> `router_critical` -> `gpt-6-astra/max`
+   - independent review -> `router_reviewer` -> `gpt-6-astra/high`
+   If a target is unavailable on the host, keep the work in the root session
+   or use an explicitly selected compatible target; never silently downgrade
+   the capability floor.
+5. Show one concise line in the user's language only when routing is used:
    `Route: <tier> - <model>/<effort> - <short reason>.`
-6. For `critical`, ask for confirmation before recording or spawning unless the user
-   explicitly invoked `$model-router critical`. Explain that it uses
-   `gpt-5.6-sol/max` plus an independent reviewer.
+6. Do not ask for confirmation merely because a model tier is called
+   `critical`. Handle approval for destructive or external actions separately
+   from model selection.
 7. Repeat `decide` without `--dry-run` to append the selection and retain the
-   returned route ID. For an explicit override, also pass `--tier <tier>`.
-8. Start one write-capable custom agent. Pass the full task, current working
+   returned route ID when routing is used. For an explicit override, also pass
+   `--tier <tier>`.
+8. Start one write-capable custom agent only when the route is useful. Pass the full task, current working
    directory, applicable constraints and skills, requested delivery actions,
    and success criteria. Preserve the current task context when spawning.
-9. Keep follow-ups on that agent. Re-evaluate at a material phase transition,
-   such as analysis to implementation or implementation to production action,
-   but do not downgrade within the task.
+9. Keep follow-ups on that agent by default. Re-evaluate at a material phase
+   transition, such as analysis to implementation or implementation to
+   production action. The task may return to the root session or change effort
+   when evidence, host availability, or the user's explicit constraint calls
+   for it.
 10. Wait for the agent, inspect its evidence and verification, then record one
     completion immediately before delivering the consolidated answer. Omit
     `--duration-seconds` so the logger calculates wall time from timestamps.
@@ -82,14 +93,14 @@ appears, representative verification fails twice, required evidence conflicts,
 or the selected agent reports that its tier is insufficient. Multi-module work
 inside one known ownership boundary may remain `balanced`.
 
-Escalating to `critical` always requires confirmation unless already explicitly
-selected. Never silently downgrade a critical task. If an agent or pinned model
-is unavailable, use these fallbacks:
+Escalating to `critical` is a routing decision, not an approval request. Ask
+only when the action itself needs user approval or the scope is unclear. If an
+agent or pinned model is unavailable, use these fallbacks:
 
 - `fast` -> `balanced`
 - `balanced` -> `deep`
-- `deep` -> request confirmation for `critical`
-- `critical` or `reviewer` -> stop and report the configuration failure
+- `deep` -> keep the work in the root session or report that routing is unavailable
+- `critical` or `reviewer` -> keep the work in the root session and report the configuration failure
 
 Model tier is separate from action permission. A commit, push, install, or
 release does not by itself make a task critical; follow the user's authorization

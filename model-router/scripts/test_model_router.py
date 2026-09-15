@@ -64,6 +64,7 @@ def test_logging_and_lifecycle() -> None:
         )
         route_id = decision["route_id"]
         assert decision["tier"] == "balanced"
+        assert decision["configured_target"] == "gpt-6-astra/medium"
         run(
             "--log-file",
             str(log_file),
@@ -93,6 +94,7 @@ def test_logging_and_lifecycle() -> None:
         assert summary["active_duration_seconds"]["median"] == 30
         assert summary["tier_fits"] == {"under": 1}
         assert summary["duration_sources"] == {"reported": 1}
+        assert summary["configured_targets"] == {"gpt-6-astra/medium": 1}
         assert summary["escalated"] == 1
         assert summary["tier_metrics"]["balanced"]["passed"] == 1
         assert summary["reason_metrics"]["multi-module"]["passed"] == 1
@@ -230,6 +232,7 @@ def test_legacy_log_compatibility() -> None:
         assert summary["completed"] == 1
         assert summary["duration_sources"] == {"legacy-reported": 1}
         assert summary["tier_fits"] == {"unknown": 1}
+        assert summary["configured_targets"] == {"legacy-tier:balanced": 1}
 
 
 def main() -> int:

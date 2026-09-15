@@ -7,7 +7,7 @@ shape and consequence of the work, not keywords or the user's apparent urgency.
 
 | Tier | Choose when | Avoid when |
 | --- | --- | --- |
-| passthrough | Simple factual reply, explicit dedicated skill, one-step status/tool operation, or dedicated image/artifact workflow | Repository analysis or multi-step work is required |
+| passthrough | Simple factual reply, explicit dedicated skill, one-step status/tool operation, dedicated image/artifact workflow, or routine work the current root session can finish directly | Isolation or independent review would materially improve the result |
 | fast | Goal and implementation are clear, scope is small but still substantive, change is reversible, and verification is deterministic | The root can finish in one bounded operation, or investigation is required |
 | balanced | Routine research, diagnosis, review, configuration, or implementation with bounded uncertainty, including multi-module work inside one known ownership boundary | Work crosses ownership boundaries, the root cause is ambiguous, or verification is unusually difficult |
 | deep | A strong signal exists: ambiguous root cause, cross-system ownership, concurrency/performance behavior, unfamiliar API semantics, or a long verification chain; alternatively, multi-module scope combines with another material complexity signal | Multi-module scope is the only complexity signal, or failure could cause severe and hard-to-reverse harm |
@@ -29,7 +29,9 @@ Consider these dimensions together:
 
 Treat `multi-module` as a scope description, not a sufficient reason for
 `deep`. Keep same-repository, known-path work at `balanced` unless another
-material signal applies. Choose `deep` when at least one strong signal applies:
+material signal applies. Use the current root model as the capability floor;
+tier selection changes isolation and reasoning effort, not a silent downgrade.
+Choose `deep` when at least one strong signal applies:
 
 - `cross-system`
 - `ambiguous-root-cause`
@@ -58,8 +60,9 @@ consequence and difficult reversibility or verification.
   emerge, or two representative attempts fail.
 - Propose `deep -> critical` when newly discovered impact includes data loss,
   authorization, security, financial correctness, or risky production state.
-- Do not downgrade within the same task. Start a new routing decision only for
-  a genuinely new goal.
+- Keep a route sticky by default, but allow a new decision at a material phase
+  transition when evidence, host availability, or an explicit user constraint
+  justifies returning to the root session or changing effort.
 
 ## Examples
 
