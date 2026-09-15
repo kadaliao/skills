@@ -1,31 +1,40 @@
 # epistemic-discipline
 
-严谨标记模式：给每条论断打来源标签和置信度，禁止框架越界到现实结论，禁止编造引用，禁止无证据投降。
+Epistemic tagging mode: every claim carries its source and confidence, symbolic frames may not leak into real-world conclusions, citations may not be fabricated, and nothing is conceded without new evidence.
 
-## 安装
+This is a discipline you switch on for a specific kind of work — checking a claim, weighing evidence, explaining why you believe something. It is deliberately off by default.
 
-已在 `~/.agents/skills/epistemic-discipline/`。`SKILL.md` 的 frontmatter 是唯一入口，`name` 必须与目录名一致。
+## Install
 
-## 触发
+Drop the directory into your agent's skills location:
 
-明确调用才启用，默认关闭：
-
-```
-/tags            # 开启 full 档
-/tags lite       # 开启 lite 档（只标承重论断）
-/tags off        # 关闭
-严谨模式 / 打标签 / 标记论断 / tag every claim / epistemic mode
+```bash
+npx degit kadaliao/skills/epistemic-discipline ~/.agents/skills/epistemic-discipline
 ```
 
-**不会**因为用户问事实、要求核实或质疑答案而自动启用。
+`SKILL.md` is the only entry point, and its frontmatter `name` must match the directory name. Adjust the destination for other clients (for Claude Code, `~/.claude/skills/`).
 
-## 为什么不做成常驻 custom instructions
+## Triggers
 
-常驻指令的代价是它对**所有**任务生效。这套规则会污染代码生成、文件操作、简单查询和闲聊：那里没有需要标注的认识论论断，标签只会变成噪音，而且会让 agent 在不需要辩论的场合表演唱反调。
+Explicit invocation only:
 
-做成显式 skill 的取舍是反过来的：它不会自己触发。如果你发现自己在普通问答里频繁想要这套规则，正确的修法不是把它塞回常驻指令，而是缩小常驻版本的范围——只保留三行（不许编造引用；框架结论不许当现实依据；未经新证据不投降），把标签体系留在 skill 里。
+```
+/tags            # enable full
+/tags lite       # enable lite
+/tags off        # disable
+tag every claim / epistemic mode
+严谨模式 / 打标签 / 标记论断 / 标记模式
+```
 
-## 与其它 skill 的关系
+It does **not** enable itself because you asked a factual question, asked it to verify something, or pushed back on an answer.
 
-- 和 `caveman` 叠加时：压缩风格，不压缩标签。`[KNOWN, HIGH]` 这种标签不许缩写成 `K/H`。
-- 和 `high-signal-review` 叠加时：review 的"只报可复现问题"门槛优先于本 skill 的完整标注。
+## Why this is not a resident custom instruction
+
+A resident instruction applies to **every** task. This ruleset then contaminates code generation, file operations, simple lookups, and small talk: there are no epistemic claims there to label, the tags become noise, and the agent performs contrarianism in situations that do not call for an argument.
+
+A skill trades that away in the other direction — it will not trigger itself. If you find yourself wanting these rules constantly in ordinary Q&A, the fix is not to move the whole ruleset back into resident instructions. Shrink the resident version to three lines (never fabricate citations; never use a frame's conclusion as real-world grounds; never concede without new evidence) and leave the tagging system in the skill.
+
+## Interaction with other skills
+
+- With `caveman`: compress style, not tags. `[KNOWN, HIGH]` does not become `K/H`.
+- With `high-signal-review`: that skill's "report only reproducible problems" bar outranks this skill's requirement to tag everything.
