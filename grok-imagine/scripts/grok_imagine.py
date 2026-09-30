@@ -82,9 +82,12 @@ def ensure_chrome() -> None:
         cdp_get("/json/version")
     except OSError:
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        # Launched outside LaunchServices, macOS Chrome may not get its Keychain key and then
+        # keeps cookies in memory only, so the login is lost on every restart. The mock
+        # keychain uses a fixed key and lets cookies persist in this dedicated profile.
         subprocess.Popen(
             [chrome_binary(), f"--remote-debugging-port={CDP_PORT}", f"--user-data-dir={PROFILE_DIR}",
-             "--no-first-run", "--no-default-browser-check", "about:blank"],
+             "--no-first-run", "--no-default-browser-check", "--use-mock-keychain", "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
         )
         for _ in range(60):
@@ -128,10 +131,10 @@ PROMPT_BAR_INPUT_JS = """() => {
   return [...document.querySelectorAll('input[type=file]')].indexOf(el.querySelector('input[type=file]'));
 }"""
 
-PROMPT_BAR_HAS_IMAGE_JS = """() => {
+PROMPT_BAR_IMAGE_COUNT_JS = """() => {
   let el = document.querySelector('[contenteditable=true], textarea');
   while (el && !el.querySelector('input[type=file]')) el = el.parentElement;
-  return !!el && !!el.querySelector('img');
+  return el ? el.querySelectorAll('img').length : 0;
 }"""
 
 
@@ -306,22 +309,26 @@ class Bridge:
                     "extra_batches_sent": state["leaked"], "images": results}
 
     async def video(self, prompt: str, aspect_ratio: str | None = None, duration: int | None = None,
-                    resolution: str | None = None, image_path: str | None = None, out: str | None = None,
+                    resolution: str | None = None, image_paths: list[str] | None = None, out: str | None = None,
                     timeout: float = 900) -> dict:
         async with self.lock:
             page = await self._open_imagine()
             try:
                 await radio(page, "Video", "视频").click()
-                if image_path:
+                if image_paths:
                     k = await page.evaluate(PROMPT_BAR_INPUT_JS)
                     if k < 0:
                         raise BridgeError("prompt-bar image input not found (UI changed?)")
-                    await page.locator("input[type=file]").nth(k).set_input_files(image_path)
+                    # The prompt bar's input takes several files at once; each becomes a reference image.
+                    await page.locator("input[type=file]").nth(k).set_input_files(image_paths)
                     try:
-                        await page.wait_for_function(PROMPT_BAR_HAS_IMAGE_JS, timeout=30_000)
+                        await page.wait_for_function(f"() => ({PROMPT_BAR_IMAGE_COUNT_JS})() >= {len(image_paths)}",
+                                                     timeout=30_000)
                     except Exception:
-                        raise BridgeError("image did not attach to the prompt bar; nothing was submitted") from None
-                    await page.wait_for_timeout(2000)  # let the upload finish before submitting
+                        n = await page.evaluate(PROMPT_BAR_IMAGE_COUNT_JS)
+                        raise BridgeError(f"only {n} of {len(image_paths)} images attached to the prompt bar; "
+                                          "nothing was submitted") from None
+                    await page.wait_for_timeout(2000)  # let the uploads finish before submitting
                 if resolution:
                     await radio(page, resolution).click()
                 if duration:
@@ -394,7 +401,7 @@ async def serve(port: int):
     async def videos(request):
         b = await request.json()
         return await run(lambda: bridge.video(b["prompt"], b.get("aspect_ratio"), b.get("duration"),
-                                              b.get("resolution"), b.get("image_path"), b.get("out")))
+                                              b.get("resolution"), b.get("image_paths"), b.get("out")))
 
     app = web.Application()
     app.router.add_get("/ping", ping)
@@ -458,7 +465,7 @@ def main(argv=None) -> int:
     p.add_argument("--aspect-ratio")
     p.add_argument("--duration", type=int, choices=[6, 10, 15])
     p.add_argument("--resolution", choices=["480p", "720p"])
-    p.add_argument("--image", help="local image for image-to-video")
+    p.add_argument("--image", action="append", help="local reference image; repeat for several")
     p = sub.add_parser("serve")
     p.add_argument("--port", type=int, default=PORT)
     sub.add_parser("stop")
@@ -493,10 +500,10 @@ def main(argv=None) -> int:
             status, result = call("POST", "/v1/images", {"prompt": args.prompt, "aspect_ratio": args.aspect_ratio,
                                                          "out": out}, timeout=600)
         else:
-            image = str(Path(args.image).resolve()) if args.image else None
+            images = [str(Path(i).resolve()) for i in args.image or []]
             status, result = call("POST", "/v1/videos", {
                 "prompt": args.prompt, "aspect_ratio": args.aspect_ratio, "duration": args.duration,
-                "resolution": args.resolution, "image_path": image, "out": out}, timeout=1200)
+                "resolution": args.resolution, "image_paths": images, "out": out}, timeout=1200)
     except BridgeError as e:
         status, result = e.status, {"error": str(e)}
     print(json.dumps(result, ensure_ascii=False, indent=1))

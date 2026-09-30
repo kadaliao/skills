@@ -24,7 +24,7 @@ Do not attach to the user's main Chrome through `chrome://inspect` remote debugg
 ```bash
 uv run scripts/grok_imagine.py status                 # exit 2 = not logged in
 uv run scripts/grok_imagine.py image "prompt" [--aspect-ratio 2:3|3:2|1:1|9:16|16:9]
-uv run scripts/grok_imagine.py video "prompt" [--duration 6|10|15] [--resolution 480p|720p] [--aspect-ratio ...|Auto] [--image path.jpg]
+uv run scripts/grok_imagine.py video "prompt" [--duration 6|10|15] [--resolution 480p|720p] [--aspect-ratio ...|Auto] [--image a.jpg [--image b.jpg ...]]
 uv run scripts/grok_imagine.py --out ./outputs image "prompt"    # save into a task directory
 uv run scripts/grok_imagine.py stop                   # stop the daemon, e.g. after editing the script
 ```
@@ -33,7 +33,8 @@ Each command prints JSON with local file paths (default `~/.grok-bridge/outputs/
 
 - `image` returns the batch Grok generates: 8 images in Speed mode, 4 in Quality mode, with the mode taken from the page's current setting. Items with `moderated: true` have no file.
 - The page would request extra batches on its own as results render. The daemon drops them and reports `suppressed_batches`; `extra_batches_sent` must stay 0.
-- `--image` makes `video` image-to-video. The result's `input` must then read `["imageToVideo"]`.
+- `--image` makes `video` image-to-video; repeat it to attach several reference images, as the page's prompt bar allows. Refer to them in the prompt by order or description ("the man from the first image"). The result's `input` must then not read `["textToVideo"]`; check what it does read.
+- The dedicated Chrome runs with `--use-mock-keychain`: launched outside LaunchServices, macOS Chrome may otherwise fail to get its Keychain key and keep cookies in memory only, so the login would be lost on every restart.
 
 Every generation spends the user's subscription quota:
 
@@ -48,7 +49,7 @@ The daemon listens on `127.0.0.1:8765`, with its log in `~/.grok-bridge/daemon.l
 
 - `GET /health`
 - `POST /v1/images {"prompt","aspect_ratio","out"}`
-- `POST /v1/videos {"prompt","duration","resolution","aspect_ratio","image_path","out"}`
+- `POST /v1/videos {"prompt","duration","resolution","aspect_ratio","image_paths":[...],"out"}`
 
 Paths must be absolute.
 
