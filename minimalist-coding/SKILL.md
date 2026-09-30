@@ -1,10 +1,10 @@
 ---
 name: minimalist-coding
-description: Use when the user asks for a focused implementation, bug fix, simplification, dependency reduction, or to avoid over-engineering. Chooses the smallest clear, compatible, and risk-proportionate change after checking whether the requested capability already exists.
+description: Focused implementation workflow that chooses the smallest clear, compatible, and risk-proportionate change after checking whether the requested capability already exists. Trigger only when the user explicitly invokes /minimalist-coding or asks for minimalist coding by name; never auto-run for ordinary implementation, bug-fix, simplification, or refactoring requests.
 license: MIT
 metadata:
   author: kadaliao
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Minimalist Coding
@@ -17,7 +17,8 @@ Always respond in the user's language.
 
 ## Decision Ladder
 
-Before adding code, stop at the first option that satisfies the request:
+Before adding code, inspect enough of the local code and constraints to choose
+the first option that satisfies the request:
 
 1. **Do not add unrequested scope** - omit behavior the user did not ask for.
 2. **Reuse local code** - find the existing helper, pattern, or API in the codebase.
