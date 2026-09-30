@@ -10,6 +10,7 @@ The collection is deliberately small. Anything a one-line prompt can do stays a 
 | --- | --- |
 | [debrief](debrief/) | Post-implementation learning loop: the agent explains its key decisions, then quizzes you one question at a time until you actually understand what was done — see its [README](debrief/README.md) |
 | [epistemic-discipline](epistemic-discipline/) | Explicitly invoked tagging mode: labels every claim with its source and a confidence band, blocks frame-to-reality translation and fabricated citations, and refuses concession without new evidence — see its [README](epistemic-discipline/README.md) |
+| [grok-imagine](grok-imagine/) | Generate Grok Imagine images and videos (text-to-image, text/image-to-video) on your own grok.com subscription through a local CLI/HTTP daemon that drives a dedicated logged-in Chrome. Unofficial UI automation: it can break when grok.com changes and may conflict with xAI's terms, so use the official xAI API for pay-per-use |
 | [high-signal-review](high-signal-review/) | Diff and pull-request review that reports only concrete, evidence-backed regressions and defects, not speculative or stylistic feedback |
 | [minimalist-coding](minimalist-coding/) | Focused implementation workflow that prioritizes reuse and the smallest clear, risk-proportionate change |
 | [model-router](model-router/) | **Codex only.** Routes a task to one Codex custom-agent tier (pinned OpenAI model + reasoning effort), keeps it sticky for follow-ups, and escalates on evidence — see its [README](model-router/README.md) |
